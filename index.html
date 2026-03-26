@@ -498,17 +498,35 @@
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      const dataUrl = e.target.result;
-      const base64 = dataUrl.split(',')[1];
+      const originalDataUrl = e.target.result;
 
-      if (side === 'front') {
-        frontPhoto = { base64, dataUrl };
-        renderSlot('frontSlot', dataUrl, 'front');
-      } else {
-        backPhoto = { base64, dataUrl };
-        renderSlot('backSlot', dataUrl, 'back');
-      }
-      updateScanBtn();
+      // Always convert to JPEG via canvas — handles HEIC, PNG, WebP, etc.
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        // Cap at 1600px on longest side to keep payload reasonable
+        const maxDim = 1600;
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+        const base64 = jpegDataUrl.split(',')[1];
+
+        if (side === 'front') {
+          frontPhoto = { base64, dataUrl: jpegDataUrl };
+          renderSlot('frontSlot', jpegDataUrl, 'front');
+        } else {
+          backPhoto = { base64, dataUrl: jpegDataUrl };
+          renderSlot('backSlot', jpegDataUrl, 'back');
+        }
+        updateScanBtn();
+      };
+      img.src = originalDataUrl;
     };
     reader.readAsDataURL(file);
   }
